@@ -1,7 +1,10 @@
-import { useState, useEffect } from "react";
-import { Heart, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react"; // Removed extra useEffect
+import { Heart, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface RankedBook {
   id: string;
@@ -10,42 +13,61 @@ interface RankedBook {
   cover_url: string;
   likes: number;
   likedBy: string[];
+  myVoteId?: string;
 }
 
 export function RankingTab() {
+  const { user } = useAuth();
   const [books, setBooks] = useState<RankedBook[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: allBooks } = await supabase
-        .from("books")
-        .select("id, title, author, cover_url");
+  const load = async () => {
+    if (!user) return; // Wait for user
 
-      const { data: allVotes } = await supabase
-        .from("votes")
-        .select("book_id, user_name, vote_value");
+    const { data: allBooks } = await supabase
+      .from("books")
+      .select("id, title, author, cover_url");
 
-      if (!allBooks) {
-        setLoading(false);
-        return;
-      }
+    const { data: allVotes } = await supabase
+      .from("votes")
+      .select("id, book_id, user_name, vote_value, user_id");
 
-      const ranked: RankedBook[] = allBooks.map((book) => {
-        const bookVotes = (allVotes || []).filter((v) => v.book_id === book.id);
-        const likes = bookVotes.filter((v) => v.vote_value === 1).length;
-        const likedBy = bookVotes
-          .filter((v) => v.vote_value === 1)
-          .map((v) => v.user_name);
-        return { ...book, likes, likedBy };
-      });
-
-      ranked.sort((a, b) => b.likes - a.likes);
-      setBooks(ranked);
+    if (!allBooks) {
       setLoading(false);
-    };
+      return;
+    }
+
+    const ranked: RankedBook[] = allBooks.map((book) => {
+      const bookVotes = (allVotes || []).filter((v) => v.book_id === book.id);
+      const likes = bookVotes.filter((v) => v.vote_value === 1).length;
+      const likedBy = bookVotes
+        .filter((v) => v.vote_value === 1)
+        .map((v) => v.user_name);
+
+      const myVote = bookVotes.find((v) => v.user_id === user.id);
+
+      return { ...book, likes, likedBy, myVoteId: myVote?.id };
+    });
+
+    ranked.sort((a, b) => b.likes - a.likes);
+    setBooks(ranked);
+    setLoading(false);
+  };
+
+  useEffect(() => {
     load();
-  }, []);
+  }, [user]); // Reload when user is available
+
+  const deleteVote = async (voteId: string) => {
+    try {
+      const { error } = await supabase.from("votes").delete().eq("id", voteId);
+      if (error) throw error;
+      toast.success("Bewertung entfernt");
+      load(); // Reload data
+    } catch {
+      toast.error("Fehler beim Löschen");
+    }
+  };
 
   if (loading) {
     return (
@@ -85,13 +107,26 @@ export function RankingTab() {
                 <p className="truncate font-semibold leading-tight">{book.title}</p>
                 <p className="truncate text-sm text-muted-foreground">{book.author}</p>
               </div>
-              <div className="mt-1 flex items-center gap-1 text-sm">
-                <Heart className="h-4 w-4 fill-primary text-primary" />
-                <span className="font-medium text-primary">{book.likes}</span>
-                {book.likedBy.length > 0 && (
-                  <span className="ml-1 truncate text-muted-foreground">
-                    · {book.likedBy.join(", ")}
-                  </span>
+              <div className="mt-1 flex items-center justify-between text-sm">
+                <div className="flex items-center gap-1">
+                  <Heart className="h-4 w-4 fill-primary text-primary" />
+                  <span className="font-medium text-primary">{book.likes}</span>
+                  {book.likedBy.length > 0 && (
+                    <span className="ml-1 truncate text-muted-foreground">
+                      · {book.likedBy.join(", ")}
+                    </span>
+                  )}
+                </div>
+                {book.myVoteId && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    onClick={() => deleteVote(book.myVoteId!)}
+                    title="Bewertung löschen"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 )}
               </div>
             </div>
