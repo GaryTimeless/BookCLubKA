@@ -6,6 +6,7 @@ import { BarcodeScanner } from "./BarcodeScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { cleanIsbn, isIsbn } from "@/utils/isbn";
 
 interface GoogleBook {
   id: string;
@@ -41,11 +42,8 @@ export function SuggestTab({ userName, userId }: SuggestTabProps) {
     if (!q.trim()) return;
     setSearching(true);
 
-    // Bereinige Query für ISBN-Prüfung (entferne alles außer Zahlen)
-    const cleanIsbn = q.replace(/\D/g, "");
-    // ISBN ist 10 oder 13 Ziffern lang
-    const isIsbn = /^(?:\d{10}|\d{13})$/.test(cleanIsbn);
-    const searchParam = isIsbn ? `isbn:${cleanIsbn}` : q;
+    const isIsbnValue = isIsbn(q);
+    const searchParam = isIsbnValue ? `isbn:${cleanIsbn(q)}` : q;
 
     const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchParam)}&maxResults=10&key=${import.meta.env.VITE_GOOGLE_BOOKS_API_KEY}`;
 
