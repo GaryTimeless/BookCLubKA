@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Search, Plus, Check, Loader2 } from "lucide-react";
+import { Search, Plus, Check, Loader2, Camera } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { BarcodeScanner } from "./BarcodeScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,16 +28,36 @@ export function SuggestTab({ userName, userId }: SuggestTabProps) {
   const [searching, setSearching] = useState(false);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [addingId, setAddingId] = useState<string | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
+
+  const handleScanResult = (result: string) => {
+    setQuery(result);
+    setShowScanner(false);
+    // Optional: Direkt Suche auslösen
+    setTimeout(() => search(), 100);
+  };
 
   const search = async () => {
     if (!query.trim()) return;
     setSearching(true);
 
-    
+    // Bereinige Query für ISBN-Prüfung
+    const cleanQuery = query.replace(/[-\s]/g, "");
+    const isIsbn = /^\d{10}(\d{3})?$/.test(cleanQuery);
+    const searchParam = isIsbn ? `isbn:${cleanQuery}` : query;
+
+    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchParam)}&maxResults=10&key=${import.meta.env.VITE_GOOGLE_BOOKS_API_KEY}`;
+
     try {
-      const res = await fetch(
-        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10&key=${import.meta.env.VITE_GOOGLE_BOOKS_API_KEY}`
-      );
+      let res = await fetch(url);
+
+      // Wenn Fehler 503 kommt: Kurz warten und nochmal probieren
+      if (res.status === 503) {
+        console.log("Server service unavailable (503), retry in 1s...");
+        await new Promise((r) => setTimeout(r, 1000));
+        res = await fetch(url);
+      }
+
       if (res.status === 429) {
         toast.error("Google Books API-Limit erreicht. Bitte versuche es in ein paar Minuten erneut.");
         return;
@@ -109,10 +130,26 @@ export function SuggestTab({ userName, userId }: SuggestTabProps) {
           onChange={(e) => setQuery(e.target.value)}
           className="h-11 rounded-xl bg-card"
         />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-11 w-11 shrink-0 rounded-xl bg-card border-none"
+          onClick={() => setShowScanner(true)}
+        >
+          <Camera className="h-5 w-5" />
+        </Button>
         <Button type="submit" size="icon" className="h-11 w-11 shrink-0 rounded-xl" disabled={searching}>
           {searching ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
         </Button>
       </form>
+
+      {showScanner && (
+        <BarcodeScanner
+          onScanResult={handleScanResult}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
 
       <AnimatePresence mode="popLayout">
         {results.map((book) => (
