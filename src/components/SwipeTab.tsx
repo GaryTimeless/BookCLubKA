@@ -28,7 +28,7 @@ export function SwipeTab({ userName, userId }: SwipeTabProps) {
       const { data: votedBookIds } = await supabase
         .from("votes")
         .select("book_id")
-        .eq("user_id", userId);
+        .or(`user_id.eq.${userId},user_name.eq.${userName}`);
 
       const votedIds = (votedBookIds || []).map((v) => v.book_id);
 

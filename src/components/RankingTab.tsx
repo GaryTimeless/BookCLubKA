@@ -17,7 +17,8 @@ interface RankedBook {
 }
 
 export function RankingTab() {
-  const { user } = useAuth();
+  const { user, displayName } = useAuth();
+  const userName = displayName || user?.email || "User";
   const [books, setBooks] = useState<RankedBook[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,7 +45,9 @@ export function RankingTab() {
         .filter((v) => v.vote_value === 1)
         .map((v) => v.user_name);
 
-      const myVote = bookVotes.find((v) => v.user_id === user.id);
+      const myVote = bookVotes.find(
+        (v) => v.user_id === user.id || v.user_name === userName
+      );
 
       return { ...book, likes, likedBy, myVoteId: myVote?.id };
     });
