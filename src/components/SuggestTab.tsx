@@ -33,18 +33,19 @@ export function SuggestTab({ userName, userId }: SuggestTabProps) {
   const handleScanResult = (result: string) => {
     setQuery(result);
     setShowScanner(false);
-    // Optional: Direkt Suche auslösen
-    setTimeout(() => search(), 100);
+    search(result);
   };
 
-  const search = async () => {
-    if (!query.trim()) return;
+  const search = async (overrideQuery?: string) => {
+    const q = overrideQuery ?? query;
+    if (!q.trim()) return;
     setSearching(true);
 
-    // Bereinige Query für ISBN-Prüfung
-    const cleanQuery = query.replace(/[-\s]/g, "");
-    const isIsbn = /^\d{10}(\d{3})?$/.test(cleanQuery);
-    const searchParam = isIsbn ? `isbn:${cleanQuery}` : query;
+    // Bereinige Query für ISBN-Prüfung (entferne alles außer Zahlen)
+    const cleanIsbn = q.replace(/\D/g, "");
+    // ISBN ist 10 oder 13 Ziffern lang
+    const isIsbn = /^(?:\d{10}|\d{13})$/.test(cleanIsbn);
+    const searchParam = isIsbn ? `isbn:${cleanIsbn}` : q;
 
     const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchParam)}&maxResults=10&key=${import.meta.env.VITE_GOOGLE_BOOKS_API_KEY}`;
 
