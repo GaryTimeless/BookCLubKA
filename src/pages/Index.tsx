@@ -8,6 +8,7 @@ import { SwipeTab } from "@/components/SwipeTab";
 import { RankingTab } from "@/components/RankingTab";
 import { Button } from "@/components/ui/button";
 import { Loader2, LogOut } from "lucide-react";
+import { FeedbackDialog } from "@/components/FeedbackDialog";
 
 const Index = () => {
   const { user, loading, displayName, signOut } = useAuth();
@@ -44,10 +45,11 @@ const Index = () => {
             </span>
             LIVE
           </span>
+          <FeedbackDialog userId={user.id} />
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5 rounded-full text-muted-foreground hover:bg-muted"
+            className="h-9 w-9 rounded-full text-muted-foreground hover:bg-muted"
             onClick={() => window.location.reload()}
           >
             <RefreshCw className="h-3 w-3" />
